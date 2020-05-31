@@ -1,0 +1,75 @@
+Enter Loan Amount: <input type="number" id="loanAmount" value="400000">
+Enter Interest Rate %: <input type="number" id="intRate" value="3">
+Enter Year Term: <input type="number" id="yrTerm" value="30">
+Monthly Payment: <p id="demo"></p>
+
+<script>// <![CDATA[
+function myFunction(p1, p2) {
+  return p1 * p2;
+}
+//document.getElementById("demo").innerHTML = myFunction(4, 3);
+// ]]></script>
+<script>// <![CDATA[
+myFunction();
+document.getElementById("loanAmount").onchange = function() {myFunction()};
+document.getElementById("intRate").onchange = function() {myFunction()};
+document.getElementById("yrTerm").onchange = function() {myFunction()};
+function myFunction() {
+  var loanAmount = document.getElementById("loanAmount").value;
+  var intRate = document.getElementById("intRate").value;
+  var yrTerm = document.getElementById("yrTerm").value;
+  var monthlyPayment = calculatePayments(loanAmount, yrTerm, intRate, 0).monthlyPayment
+  document.getElementById("demo").innerHTML = Math.round(monthlyPayment);
+}
+function calculatePayments(
+  initial,
+  years,
+  rate,
+  monthlyOverpayment,
+  overpayments = []
+) {
+  const monthlyRatePct = rate / 1200;
+  const monthlyPayment =
+    monthlyRatePct === 0
+      ? initial / years / 12
+      : (initial * monthlyRatePct) /
+        (1 - Math.pow(1 / (1 + monthlyRatePct), years * 12));
+  let balance = initial;
+  let baseline = initial;
+  let payments = [{ overpayment: 0, balance, baseline }];
+  let partial;
+
+  for (let year = 0; year < years; year++) {
+    let interestYearly = 0;
+    let overpaymentYearly = 0;
+    for (let month = 1; month <= 12; month++) {
+      const overpayment = overpayments
+        .filter(x => +x.year === year && +x.month === month)
+        .reduce((acc, val) => acc + +val.amount, 0);
+      let interestMonth = balance * monthlyRatePct;
+      interestYearly += interestMonth;
+      overpaymentYearly += overpayment;
+      balance -=
+        monthlyPayment + monthlyOverpayment + overpayment - interestMonth;
+      baseline -= monthlyPayment - baseline * monthlyRatePct;
+
+      if (balance <= 0) {
+        balance = 0;
+        if (partial === undefined && month !== 12) {
+          partial = month;
+        }
+      }
+    }
+
+    payments.push({
+      baseline,
+      interestYearly,
+      balance,
+      partial,
+      overpayment: overpaymentYearly + +monthlyOverpayment * (partial || 12)
+    });
+    if (partial) partial = 0;
+  }
+  return { monthlyPayment, payments };
+}
+// ]]></script>
