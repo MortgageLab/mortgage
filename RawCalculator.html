@@ -1,75 +1,162 @@
-Enter Loan Amount: <input type="number" id="loanAmount" value="400000">
-Enter Interest Rate %: <input type="number" id="intRate" value="3">
-Enter Year Term: <input type="number" id="yrTerm" value="30">
-Monthly Payment: <p id="demo"></p>
+<p>Enter Original Monthly Payment $: <input type="number" id="oriPayment" value="2000" /></p>
+<p>Enter Original Rate %: <input type="number" id="oriRate" value="4" /></p>
+<p>Enter Current Loan Amount $: <input type="number" id="loanAmount" value="400000" /></p>
+<p><strong>Based on your input, your remaining years</strong> <input type="number" id="remainingYears" readonly="readonly" /></p>
+<p><strong>Your remaining interest to pay</strong> <input type="number" id="remainingInt" readonly="readonly" /></p>
+<p>Enter New Rate %: <input type="number" id="intRate" value="3" /></p>
+<p>Enter New Term in Years: <input type="number" id="yrTerm" value="30" /></p>
+<p><strong><span style="color: #ff2a00;">New Monthly Payment </span></strong>$: <input type="number" id="monthPayment" value="30" readonly="readonly" /></p>
+<p id="additionalPayment" />
+<p id="reducedYearTerm" />
+<p>Total New Interest $: <input type="number" id="newInterestPay" readonly="readonly" /></p>
+<p>YOU SAVE $: <input type="number" id="intSaving" readonly="readonly" /></p>
+<script>
+  // YOU CAN PLAY THIS ON https://jsfiddle.net/
+  // <![CDATA[
+  function myFunction(p1, p2) {
+    return p1 * p2;
+  }
+  //document.getElementById("demo").innerHTML = myFunction(4, 3);
+  // ]]>
 
-<script>// <![CDATA[
-function myFunction(p1, p2) {
-  return p1 * p2;
-}
-//document.getElementById("demo").innerHTML = myFunction(4, 3);
-// ]]></script>
-<script>// <![CDATA[
-myFunction();
-document.getElementById("loanAmount").onchange = function() {myFunction()};
-document.getElementById("intRate").onchange = function() {myFunction()};
-document.getElementById("yrTerm").onchange = function() {myFunction()};
-function myFunction() {
-  var loanAmount = document.getElementById("loanAmount").value;
-  var intRate = document.getElementById("intRate").value;
-  var yrTerm = document.getElementById("yrTerm").value;
-  var monthlyPayment = calculatePayments(loanAmount, yrTerm, intRate, 0).monthlyPayment
-  document.getElementById("demo").innerHTML = Math.round(monthlyPayment);
-}
-function calculatePayments(
-  initial,
-  years,
-  rate,
-  monthlyOverpayment,
-  overpayments = []
-) {
-  const monthlyRatePct = rate / 1200;
-  const monthlyPayment =
-    monthlyRatePct === 0
-      ? initial / years / 12
-      : (initial * monthlyRatePct) /
-        (1 - Math.pow(1 / (1 + monthlyRatePct), years * 12));
-  let balance = initial;
-  let baseline = initial;
-  let payments = [{ overpayment: 0, balance, baseline }];
-  let partial;
+</script>
+<script>
+  // <![CDATA[
+  myFunction();
+  document.getElementById("oriPayment").onchange = function() {
+    myFunction()
+  };
+  document.getElementById("oriRate").onchange = function() {
+    myFunction()
+  };
+  document.getElementById("loanAmount").onchange = function() {
+    myFunction()
+  };
+  document.getElementById("intRate").onchange = function() {
+    myFunction()
+  };
+  document.getElementById("yrTerm").onchange = function() {
+    myFunction()
+  };
 
-  for (let year = 0; year < years; year++) {
-    let interestYearly = 0;
-    let overpaymentYearly = 0;
-    for (let month = 1; month <= 12; month++) {
-      const overpayment = overpayments
-        .filter(x => +x.year === year && +x.month === month)
-        .reduce((acc, val) => acc + +val.amount, 0);
-      let interestMonth = balance * monthlyRatePct;
-      interestYearly += interestMonth;
-      overpaymentYearly += overpayment;
-      balance -=
-        monthlyPayment + monthlyOverpayment + overpayment - interestMonth;
-      baseline -= monthlyPayment - baseline * monthlyRatePct;
+  function myFunction() {
+    var loanAmount = document.getElementById("loanAmount").value;
 
-      if (balance <= 0) {
-        balance = 0;
-        if (partial === undefined && month !== 12) {
-          partial = month;
-        }
-      }
+    // 1. Calcualte remaining months and interest
+    var oriPayment = document.getElementById("oriPayment").value
+    var oriRate = document.getElementById("oriRate").value
+    var remainingMonths = calculateRemainingMonths(loanAmount, oriPayment, oriRate);
+    document.getElementById("remainingYears").value = Math.round(remainingMonths*10/12,1)/10;
+    var remainingInt = Math.round(calculateRemainingInt(loanAmount, remainingMonths, oriPayment));
+    document.getElementById("remainingInt").value = remainingInt;
+
+    // 2. Calculate new Monthly Payment
+    var intRate = document.getElementById("intRate").value;
+    var yrTerm = document.getElementById("yrTerm").value;
+    var monthlyPayment = Math.round(calculatePayments(loanAmount, yrTerm, intRate, 0).monthlyPayment)
+    document.getElementById("monthPayment").value = monthlyPayment;
+
+    // 3. Calculate additional pay so that new payment is original payment
+    var adjMonthlyPayment = monthlyPayment;
+    var remainingYears = yrTerm;
+    if (oriPayment > monthlyPayment) {
+      document.getElementById("additionalPayment").innerHTML = "Make Extra Monthly Pay: $" + (oriPayment - monthlyPayment);
+      adjMonthlyPayment = oriPayment;
+      remainingYears = Math.round(calculateRemainingMonths(loanAmount, oriPayment, intRate) * 10 / 12) / 10;
+      document.getElementById("reducedYearTerm").innerHTML = "New Reduced Year Term: " + remainingYears;
+    } else {
+      document.getElementById("additionalPayment").innerHTML = "";
+      document.getElementById("reducedYearTerm").innerHTML = "";
     }
 
-    payments.push({
-      baseline,
-      interestYearly,
-      balance,
-      partial,
-      overpayment: overpaymentYearly + +monthlyOverpayment * (partial || 12)
-    });
-    if (partial) partial = 0;
+    // 4. Total New interest
+    newTotalInterest = Math.round(calculateRemainingInt(loanAmount, remainingYears * 12, adjMonthlyPayment));
+    document.getElementById("newInterestPay").value = newTotalInterest;
+
+    // 5. You Save
+    intSaving = remainingInt - newTotalInterest;
+    document.getElementById("intSaving").value = intSaving;
   }
-  return { monthlyPayment, payments };
-}
-// ]]></script>
+
+  function calculateRemainingMonths(
+    remainingBalance,
+    monthlyPayment,
+    rate,
+  ) {
+    const monthlyRatePct = rate / 1200;
+    //ic = m/(m-rLA*int)
+    ic = monthlyPayment / (monthlyPayment - remainingBalance * monthlyRatePct);
+    //ic = (1+int)^months
+    remainingMonths = Math.log(ic) / Math.log(1 + monthlyRatePct);
+    return remainingMonths;
+  }
+
+  function calculateRemainingInt(
+    remainingBalance,
+    remainingMonths,
+    monthlyPayment,
+  ) {
+    return (remainingMonths * monthlyPayment - remainingBalance);
+  }
+
+  function calculatePayments(
+    initial,
+    years,
+    rate,
+    monthlyOverpayment,
+    overpayments = []
+  ) {
+    const monthlyRatePct = rate / 1200;
+    const monthlyPayment =
+      monthlyRatePct === 0 ?
+      initial / years / 12 :
+      (initial * monthlyRatePct) /
+      (1 - Math.pow(1 / (1 + monthlyRatePct), years * 12));
+    let balance = initial;
+    let baseline = initial;
+    let payments = [{
+      overpayment: 0,
+      balance,
+      baseline
+    }];
+    let partial;
+
+    for (let year = 0; year < years; year++) {
+      let interestYearly = 0;
+      let overpaymentYearly = 0;
+      for (let month = 1; month <= 12; month++) {
+        const overpayment = overpayments
+          .filter(x => +x.year === year && +x.month === month)
+          .reduce((acc, val) => acc + +val.amount, 0);
+        let interestMonth = balance * monthlyRatePct;
+        interestYearly += interestMonth;
+        overpaymentYearly += overpayment;
+        balance -=
+          monthlyPayment + monthlyOverpayment + overpayment - interestMonth;
+        baseline -= monthlyPayment - baseline * monthlyRatePct;
+
+        if (balance <= 0) {
+          balance = 0;
+          if (partial === undefined && month !== 12) {
+            partial = month;
+          }
+        }
+      }
+
+      payments.push({
+        baseline,
+        interestYearly,
+        balance,
+        partial,
+        overpayment: overpaymentYearly + +monthlyOverpayment * (partial || 12)
+      });
+      if (partial) partial = 0;
+    }
+    return {
+      monthlyPayment,
+      payments
+    };
+  }
+  // ]]>
+
+</script>
